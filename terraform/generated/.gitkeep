@@ -1,0 +1,7 @@
+# Generated Files Directory
+# This directory is created by Terraform and contains:
+# - ansible_key: SSH private key for Ansible
+# - ansible_key.pub: SSH public key
+# - inventory: Generated Ansible inventory with actual IPs
+
+# Do not commit these files to version control!

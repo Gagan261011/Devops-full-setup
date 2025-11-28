@@ -1,0 +1,22 @@
+# Ansible Inventory File for DevOps Lab
+# Update IP addresses after terraform apply
+
+[jenkins]
+jenkins ansible_host=<JENKINS_PRIVATE_IP>
+
+[sonarqube]
+sonarqube ansible_host=<SONARQUBE_PRIVATE_IP>
+
+[nexus]
+nexus ansible_host=<NEXUS_PRIVATE_IP>
+
+[app_servers]
+app_server ansible_host=<APP_SERVER_PRIVATE_IP>
+
+[ansible_slaves]
+ansible_slave ansible_host=<ANSIBLE_SLAVE_PRIVATE_IP>
+
+[all:vars]
+ansible_user=ubuntu
+ansible_python_interpreter=/usr/bin/python3
+ansible_ssh_private_key_file=/home/ubuntu/.ssh/ansible_key

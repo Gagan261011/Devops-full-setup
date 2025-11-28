@@ -1,0 +1,34 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+
+# Generated files
+terraform/generated/ansible_key
+terraform/generated/ansible_key.pub
+terraform/generated/inventory
+terraform/generated/copy_inventory.sh
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java/Maven
+app/target/
+*.class
+*.jar
+*.log
+
+# Credentials
+*.pem
+*.key
+*credentials*

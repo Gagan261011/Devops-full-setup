@@ -1,0 +1,206 @@
+---
+#############################################
+# DEPLOY APPLICATION PLAYBOOK
+# Downloads JAR from Nexus and deploys to app server
+#############################################
+# Usage:
+#   ansible-playbook deploy_app.yml \
+#     -e "app_version=1.0.0" \
+#     -e "nexus_url=http://nexus:8081" \
+#     -e "nexus_user=admin" \
+#     -e "nexus_password=admin123"
+#############################################
+
+- name: Deploy Spring Boot Application
+  hosts: app_servers
+  become: yes
+  
+  vars:
+    # Application settings
+    app_name: demo-crud-app
+    app_group_id: com.example
+    app_version: "{{ lookup('env', 'APP_VERSION') | default('1.0.0', true) }}"
+    app_port: 8080
+    app_dir: /opt/app
+    app_user: appuser
+    
+    # Nexus settings
+    nexus_url: "{{ lookup('env', 'NEXUS_URL') | default('http://localhost:8081', true) }}"
+    nexus_repo: maven-releases
+    nexus_user: "{{ lookup('env', 'NEXUS_USER') | default('admin', true) }}"
+    nexus_password: "{{ lookup('env', 'NEXUS_PASSWORD') | default('admin123', true) }}"
+    
+    # Artifact path construction
+    artifact_path: "{{ app_group_id | replace('.', '/') }}/{{ app_name }}/{{ app_version }}/{{ app_name }}-{{ app_version }}.jar"
+    artifact_url: "{{ nexus_url }}/repository/{{ nexus_repo }}/{{ artifact_path }}"
+
+  tasks:
+    #############################################
+    # Pre-deployment Tasks
+    #############################################
+    - name: Ensure Java is installed
+      apt:
+        name: openjdk-17-jdk
+        state: present
+        update_cache: yes
+
+    - name: Ensure app user exists
+      user:
+        name: "{{ app_user }}"
+        state: present
+        system: yes
+        shell: /bin/bash
+        home: "/home/{{ app_user }}"
+        create_home: yes
+
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Create logs directory
+      file:
+        path: /var/log/app
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    #############################################
+    # Stop Existing Application
+    #############################################
+    - name: Check if service exists
+      stat:
+        path: /etc/systemd/system/{{ app_name }}.service
+      register: service_file
+
+    - name: Stop existing application (if running)
+      systemd:
+        name: "{{ app_name }}"
+        state: stopped
+      when: service_file.stat.exists
+      ignore_errors: yes
+
+    #############################################
+    # Download and Deploy Artifact
+    #############################################
+    - name: Display artifact URL
+      debug:
+        msg: "Downloading artifact from: {{ artifact_url }}"
+
+    - name: Download artifact from Nexus
+      get_url:
+        url: "{{ artifact_url }}"
+        dest: "{{ app_dir }}/{{ app_name }}.jar"
+        url_username: "{{ nexus_user }}"
+        url_password: "{{ nexus_password }}"
+        force: yes
+        mode: '0644'
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        timeout: 60
+      register: download_result
+
+    - name: Verify artifact was downloaded
+      stat:
+        path: "{{ app_dir }}/{{ app_name }}.jar"
+      register: jar_file
+
+    - name: Fail if artifact not found
+      fail:
+        msg: "Artifact was not downloaded successfully!"
+      when: not jar_file.stat.exists
+
+    #############################################
+    # Create Systemd Service
+    #############################################
+    - name: Create systemd service file
+      copy:
+        content: |
+          [Unit]
+          Description={{ app_name }} Spring Boot Application
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User={{ app_user }}
+          WorkingDirectory={{ app_dir }}
+          ExecStart=/usr/bin/java -Xms256m -Xmx512m -jar {{ app_dir }}/{{ app_name }}.jar --server.port={{ app_port }}
+          SuccessExitStatus=143
+          Restart=always
+          RestartSec=10
+          StandardOutput=append:/var/log/app/{{ app_name }}.log
+          StandardError=append:/var/log/app/{{ app_name }}-error.log
+          
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/{{ app_name }}.service
+        mode: '0644'
+      register: service_created
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+      when: service_created.changed
+
+    #############################################
+    # Start Application
+    #############################################
+    - name: Start and enable application service
+      systemd:
+        name: "{{ app_name }}"
+        state: started
+        enabled: yes
+
+    - name: Wait for application to start
+      wait_for:
+        port: "{{ app_port }}"
+        host: "0.0.0.0"
+        delay: 10
+        timeout: 90
+
+    #############################################
+    # Health Check
+    #############################################
+    - name: Wait a bit more for Spring Boot to fully initialize
+      pause:
+        seconds: 15
+
+    - name: Perform health check
+      uri:
+        url: "http://localhost:{{ app_port }}/actuator/health"
+        method: GET
+        status_code: 200
+        timeout: 10
+      register: health_check
+      retries: 6
+      delay: 10
+      until: health_check.status == 200
+      ignore_errors: yes
+
+    - name: Display health check result
+      debug:
+        msg: "Application is {{ 'healthy' if health_check.status == 200 else 'not responding' }}!"
+
+    #############################################
+    # Summary
+    #############################################
+    - name: Deployment summary
+      debug:
+        msg: |
+          ============================================
+          Deployment Complete!
+          ============================================
+          Application: {{ app_name }}
+          Version: {{ app_version }}
+          Port: {{ app_port }}
+          Status: {{ 'RUNNING' if health_check.status == 200 else 'CHECK LOGS' }}
+          
+          Access URL: http://{{ ansible_host }}:{{ app_port }}
+          Health URL: http://{{ ansible_host }}:{{ app_port }}/actuator/health
+          
+          Logs: /var/log/app/{{ app_name }}.log
+          ============================================

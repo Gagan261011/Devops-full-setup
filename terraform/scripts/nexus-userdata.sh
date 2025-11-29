@@ -54,13 +54,22 @@ cd /opt
 NEXUS_VERSION="3.64.0-04"
 wget -q https://download.sonatype.com/nexus/3/nexus-${NEXUS_VERSION}-unix.tar.gz
 
-# Extract
+# Extract to temp location first
 tar -xzf nexus-${NEXUS_VERSION}-unix.tar.gz
-mv nexus-${NEXUS_VERSION} nexus
-mv sonatype-work /opt/nexus/
+
+# Move nexus application to /opt/nexus
+mv nexus-${NEXUS_VERSION} /opt/nexus
+
+# Move sonatype-work to /opt (Nexus expects it at ../sonatype-work relative to bin/)
+mv sonatype-work /opt/sonatype-work
+
+# Create required directories
+mkdir -p /opt/sonatype-work/nexus3/log
+mkdir -p /opt/sonatype-work/nexus3/tmp
 
 # Set ownership
 chown -R nexus:nexus /opt/nexus
+chown -R nexus:nexus /opt/sonatype-work
 
 #############################################
 # Configure Nexus
@@ -138,8 +147,8 @@ while ! curl -s http://localhost:8081/service/rest/v1/status | grep -q "STARTED"
 done
 
 # Get initial admin password
-if [ -f /opt/nexus/sonatype-work/nexus3/admin.password ]; then
-    ADMIN_PASSWORD=$(cat /opt/nexus/sonatype-work/nexus3/admin.password)
+if [ -f /opt/sonatype-work/nexus3/admin.password ]; then
+    ADMIN_PASSWORD=$(cat /opt/sonatype-work/nexus3/admin.password)
     echo "Initial admin password: $ADMIN_PASSWORD"
 fi
 
@@ -148,7 +157,7 @@ echo "Nexus Repository Server Setup Complete!"
 echo "=========================================="
 echo "Access Nexus at: http://<public-ip>:8081"
 echo "Initial admin password stored in:"
-echo "/opt/nexus/sonatype-work/nexus3/admin.password"
+echo "/opt/sonatype-work/nexus3/admin.password"
 echo ""
 echo "POST-SETUP STEPS:"
 echo "1. Log in with admin and the initial password"

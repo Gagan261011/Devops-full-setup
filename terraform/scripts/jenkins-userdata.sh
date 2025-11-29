@@ -87,19 +87,19 @@ echo "Installing Jenkins plugins..."
 
 # Get initial admin password
 JENKINS_URL="http://localhost:8080"
-ADMIN_PASSWORD=$(cat /var/lib/jenkins/secrets/initialAdminPassword)
+ADMIN_PASSWORD=$$(cat /var/lib/jenkins/secrets/initialAdminPassword)
 
 # Create CLI jar directory
 mkdir -p /var/lib/jenkins/cli
 
 # Wait for Jenkins to be fully ready
-while ! curl -s -o /dev/null -w "%{http_code}" "$JENKINS_URL/login" | grep -q "200"; do
+while ! curl -s -o /dev/null -w "%%{http_code}" "$$JENKINS_URL/login" | grep -q "200"; do
     echo "Waiting for Jenkins to be ready..."
     sleep 10
 done
 
 # Download Jenkins CLI
-curl -L "$JENKINS_URL/jnlpJars/jenkins-cli.jar" -o /var/lib/jenkins/cli/jenkins-cli.jar
+curl -L "$$JENKINS_URL/jnlpJars/jenkins-cli.jar" -o /var/lib/jenkins/cli/jenkins-cli.jar
 
 # Install plugins using CLI
 PLUGINS=(
@@ -125,12 +125,12 @@ PLUGINS=(
     "publish-over-ssh"            # Publish Over SSH
 )
 
-for plugin in "${PLUGINS[@]}"; do
-    echo "Installing plugin: $plugin"
+for plugin in "$${PLUGINS[@]}"; do
+    echo "Installing plugin: $$plugin"
     java -jar /var/lib/jenkins/cli/jenkins-cli.jar \
-        -s "$JENKINS_URL" \
-        -auth admin:"$ADMIN_PASSWORD" \
-        install-plugin "$plugin" || echo "Failed to install $plugin"
+        -s "$$JENKINS_URL" \
+        -auth admin:"$$ADMIN_PASSWORD" \
+        install-plugin "$$plugin" || echo "Failed to install $$plugin"
 done
 
 # Restart Jenkins to load plugins
@@ -157,5 +157,5 @@ echo "=========================================="
 echo "Jenkins Server Setup Complete!"
 echo "=========================================="
 echo "Access Jenkins at: http://<public-ip>:8080"
-echo "Initial admin password: $ADMIN_PASSWORD"
+echo "Initial admin password: $$ADMIN_PASSWORD"
 echo "=========================================="

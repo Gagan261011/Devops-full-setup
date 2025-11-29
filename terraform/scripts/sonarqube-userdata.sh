@@ -55,12 +55,6 @@ sonarqube   -   nproc    8192
 EOF
 
 #############################################
-# Create SonarQube User
-#############################################
-echo "Creating SonarQube user..."
-useradd -r -m -d /opt/sonarqube -s /bin/bash sonarqube
-
-#############################################
 # Download and Install SonarQube
 #############################################
 echo "Downloading SonarQube..."
@@ -70,9 +64,16 @@ cd /opt
 SONARQUBE_VERSION="10.3.0.82913"
 wget -q https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-${SONARQUBE_VERSION}.zip
 
-# Extract
+# Extract and rename (do this BEFORE creating user to avoid directory conflict)
 unzip -q sonarqube-${SONARQUBE_VERSION}.zip
 mv sonarqube-${SONARQUBE_VERSION} sonarqube
+
+#############################################
+# Create SonarQube User
+#############################################
+echo "Creating SonarQube user..."
+# Create user with /opt/sonarqube as home (directory already exists from extraction)
+useradd -r -d /opt/sonarqube -s /bin/bash sonarqube
 
 # Set ownership
 chown -R sonarqube:sonarqube /opt/sonarqube
